@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blue Lock - Przeglądarka Postaci</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Visualization & Content Choices: 
+        - Lista Postaci (HTML/JS): Cel: Nawigacja/Wybór. Metoda: Klikalne elementy listy aktualizujące główny widok. Interakcja: Kliknięcie. Justyfikacja: Intuicyjny sposób wyboru postaci.
+        - Info Ogólne (Tabela HTML): Cel: Informacja. Metoda: Ustrukturyzowana tabela. Justyfikacja: Przejrzysta prezentacja danych biograficznych. Wyświetla "Brak danych" jeśli informacja nie jest dostępna.
+        - Kluczowe Umiejętności Ogólne (Wykres Radarowy Chart.js): Cel: Porównanie/Informacja (ujęcie holistyczne). Metoda: Wykres radarowy dla 5-7 kluczowych, zróżnicowanych statystyk. Interakcja: Wskazanie kursorem dla etykiet narzędzi. Justyfikacja: Szybki przegląd ogólnego profilu umiejętności. Wyświetlany dla wszystkich postaci z uzupełnionymi (nawet szacunkowymi) statystykami.
+        - Grupy Umiejętności Szczegółowych (Wykresy Słupkowe Chart.js): Cel: Porównanie/Informacja (szczegółowy widok powiązanych umiejętności). Metoda: Wykresy słupkowe dla kategorii. Interakcja: Wskazanie kursorem dla etykiet narzędzi. Justyfikacja: Głębsza analiza konkretnych aspektów gry. Wyświetlane dla wszystkich postaci z uzupełnionymi statystykami.
+        - Komunikat o braku statystyk (HTML): Cel: Informacja. Metoda: Tekst wyświetlany w miejscu wykresów, gdy dane nie są dostępne (teraz rzadziej używany). Justyfikacja: Informowanie użytkownika o braku danych.
+        - Treść Tekstowa (HTML): Wprowadzenie do aplikacji i poszczególnych sekcji, wyjaśnienia dotyczące grup umiejętności na wykresach. Justyfikacja: Kontekstualizacja prezentowanych danych.
+        - Biblioteka: Chart.js dla wszystkich wykresów. Potwierdzenie: BRAK SVG, BRAK Mermaid JS. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        @media (min-width: 640px) { /* sm */
+            .chart-container {
+                height: 320px;
+                max-height: 380px;
+            }
+        }
+        @media (min-width: 768px) { /* md */
+            .chart-container {
+                height: 350px;
+                max-height: 400px;
+            }
+        }
+        .active-char-button {
+            background-color: #0ea5e9 !important; /* sky-500 */
+            color: white !important;
+        }
+        .placeholder-text {
+            color: #78716c; /* stone-500 */
+            text-align: center;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800">
+
+    <div class="container mx-auto p-4">
+        <header class="text-center py-8">
+            <h1 class="text-4xl font-bold text-sky-600">Przeglądarka Postaci Blue Lock</h1>
+            <p class="text-stone-600 mt-2">Wybierz postać z listy, aby zobaczyć jej szczegółowy profil i statystyki. Dane dla niektórych postaci są szacunkowe.</p>
+        </header>
+
+        <div class="md:flex md:space-x-6">
+            <aside class="md:w-1/4 mb-6 md:mb-0">
+                <h2 class="text-2xl font-semibold mb-4 text-sky-700 border-b-2 border-sky-200 pb-2">Wybierz Postać</h2>
+                <div id="characterList" class="space-y-2 max-h-[70vh] overflow-y-auto pr-2">
+                </div>
+            </aside>
+
+            <main class="md:w-3/4">
+                <div id="characterProfile" class="bg-white p-6 rounded-lg shadow-lg min-h-[600px]">
+                    <p id="profilePlaceholder" class="text-stone-500 text-center py-20 text-xl">Wybierz postać z listy po lewej stronie, aby wyświetlić jej profil.</p>
+                </div>
+            </main>
+        </div>
+
+        <footer class="text-center py-8 mt-12 text-stone-500 text-sm">
+            <p>Aplikacja stworzona na podstawie danych z Blue Lock. Wszelkie prawa do postaci i uniwersum należą do ich twórców.</p>
+            <p>Dane statystyczne mają charakter szacunkowy i mogą być niekompletne.</p>
+        </footer>
+    </div>
+
+    <script>
+        const charactersData = [
+            {
+                id: "isagi", name: "Isagi Yoichi", nickname: "Egoista, Adaptujący się Geniusz", team: "Bastard München", country: "Japonia", age: 17, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 68, wykończenie: 90, celnoscGlowek: 72, krotkiePodania: 82, woleje: 86, graSlabszaNoga: 65, odbiorTradycyjny: 70, wslizg: 60, drybling: 80, podkrecenie: 75, celnoscRzutowWolnych: 65, dlugiePodania: 80, panowanieNadPilka: 88, silaStrzalu: 83, skocznosc: 75, wytrzymalosc: 88, sila: 73, strzalyZDaleka: 80, przyspieszenie: 82, szybkoscBiegu: 84, zwinnosc: 83, refleks: 92, rownowaga: 78, agresjaEgo: 90, przechwyty: 93, ustawienieOfensywne: 97, orientacjaWizjaGry: 98, rzutyKarne: 80, }
+            },
+            {
+                id: "nagi", name: "Nagi Seishiro", nickname: "Geniusz Lenistwa, Potwór Trappingu", team: "Manshine City", country: "Japonia", age: 17, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 70, wykończenie: 94, celnoscGlowek: 85, krotkiePodania: 80, woleje: 96, graSlabszaNoga: 70, odbiorTradycyjny: 60, wslizg: 50, drybling: 88, podkrecenie: 80, celnoscRzutowWolnych: 60, dlugiePodania: 75, panowanieNadPilka: 99, silaStrzalu: 88, skocznosc: 85, wytrzymalosc: 78, sila: 80, strzalyZDaleka: 82, przyspieszenie: 80, szybkoscBiegu: 83, zwinnosc: 88, refleks: 93, rownowaga: 85, agresjaEgo: 75, przechwyty: 70, ustawienieOfensywne: 88, orientacjaWizjaGry: 85, rzutyKarne: 80, }
+            },
+            {
+                id: "bachira", name: "Bachira Meguru", nickname: "Potwór Dryblingu, Artysta", team: "FC Barcha", country: "Japonia", age: 17, position: "Napastnik (FW), Pomocnik (MF)",
+                stats: { dosrodkowania: 85, wykończenie: 83, celnoscGlowek: 70, krotkiePodania: 88, woleje: 80, graSlabszaNoga: 75, odbiorTradycyjny: 70, wslizg: 65, drybling: 98, podkrecenie: 88, celnoscRzutowWolnych: 75, dlugiePodania: 82, panowanieNadPilka: 95, silaStrzalu: 80, skocznosc: 80, wytrzymalosc: 85, sila: 70, strzalyZDaleka: 78, przyspieszenie: 92, szybkoscBiegu: 90, zwinnosc: 96, refleks: 90, rownowaga: 93, agresjaEgo: 85, przechwyty: 78, ustawienieOfensywne: 85, orientacjaWizjaGry: 90, rzutyKarne: 78, }
+            },
+            {
+                id: "rin", name: "Itoshi Rin", nickname: "Niszczyciel, Lalkarz", team: "Paris X Gen", country: "Japonia", age: 17, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 88, wykończenie: 96, celnoscGlowek: 85, krotkiePodania: 92, woleje: 93, graSlabszaNoga: 88, odbiorTradycyjny: 80, wslizg: 75, drybling: 92, podkrecenie: 94, celnoscRzutowWolnych: 90, dlugiePodania: 93, panowanieNadPilka: 97, silaStrzalu: 92, skocznosc: 86, wytrzymalosc: 90, sila: 84, strzalyZDaleka: 95, przyspieszenie: 88, szybkoscBiegu: 90, zwinnosc: 89, refleks: 94, rownowaga: 88, agresjaEgo: 95, przechwyty: 88, ustawienieOfensywne: 96, orientacjaWizjaGry: 95, rzutyKarne: 92, }
+            },
+            {
+                id: "chigiri", name: "Chigiri Hyoma", nickname: "Czerwony Lampart, Sprinter", team: "Manshine City", country: "Japonia", age: 17, position: "Napastnik (FW), Skrzydłowy (WG)",
+                stats: { dosrodkowania: 80, wykończenie: 85, celnoscGlowek: 70, krotkiePodania: 78, woleje: 75, graSlabszaNoga: 68, odbiorTradycyjny: 65, wslizg: 60, drybling: 88, podkrecenie: 82, celnoscRzutowWolnych: 70, dlugiePodania: 75, panowanieNadPilka: 86, silaStrzalu: 80, skocznosc: 82, wytrzymalosc: 85, sila: 72, strzalyZDaleka: 77, przyspieszenie: 99, szybkoscBiegu: 98, zwinnosc: 92, refleks: 85, rownowaga: 80, agresjaEgo: 80, przechwyty: 70, ustawienieOfensywne: 86, orientacjaWizjaGry: 80, rzutyKarne: 78, }
+            },
+            {
+                id: "kunigami", name: "Kunigami Rensuke", nickname: "Bohater, Mroczny Koń", team: "Bastard München", country: "Japonia", age: 17, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 70, wykończenie: 92, celnoscGlowek: 88, krotkiePodania: 75, woleje: 85, graSlabszaNoga: 80, odbiorTradycyjny: 72, wslizg: 65, drybling: 78, podkrecenie: 75, celnoscRzutowWolnych: 80, dlugiePodania: 70, panowanieNadPilka: 82, silaStrzalu: 97, skocznosc: 85, wytrzymalosc: 90, sila: 92, strzalyZDaleka: 94, przyspieszenie: 84, szybkoscBiegu: 86, zwinnosc: 78, refleks: 82, rownowaga: 88, agresjaEgo: 88, przechwyty: 70, ustawienieOfensywne: 88, orientacjaWizjaGry: 78, rzutyKarne: 85, }
+            },
+            {
+                id: "gagamaru", name: "Gagamaru Gin", nickname: "Dziki Człowiek, Bramkarz Instynktu", team: "Bastard München", country: "Japonia", age: 18, position: "Bramkarz (GK), Napastnik (FW)",
+                stats: { dosrodkowania: 50, wykończenie: 80, celnoscGlowek: 85, krotkiePodania: 60, woleje: 78, graSlabszaNoga: 60, odbiorTradycyjny: 70, wslizg: 75, drybling: 70, podkrecenie: 50, celnoscRzutowWolnych: 40, dlugiePodania: 70, panowanieNadPilka: 75, silaStrzalu: 82, skocznosc: 95, wytrzymalosc: 88, sila: 86, strzalyZDaleka: 70, przyspieszenie: 85, szybkoscBiegu: 83, zwinnosc: 94, refleks: 96, rownowaga: 90, agresjaEgo: 80, przechwyty: 75, ustawienieOfensywne: 70, orientacjaWizjaGry: 75, rzutyKarne: 60, paradyBramkarskie: 95, lapanieBramkarskie: 88, wykopyBramkarskie: 80, ustawienieBramkarza: 90, refleksBramkarza: 97 }
+            },
+            {
+                id: "kaiser", name: "Michael Kaiser", nickname: "Cesarz", team: "Bastard München", country: "Niemcy", age: 18, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 85, wykończenie: 98, celnoscGlowek: 88, krotkiePodania: 90, woleje: 95, graSlabszaNoga: 85, odbiorTradycyjny: 70, wslizg: 65, drybling: 93, podkrecenie: 92, celnoscRzutowWolnych: 88, dlugiePodania: 85, panowanieNadPilka: 96, silaStrzalu: 97, skocznosc: 88, wytrzymalosc: 90, sila: 85, strzalyZDaleka: 94, przyspieszenie: 90, szybkoscBiegu: 92, zwinnosc: 90, refleks: 93, rownowaga: 88, agresjaEgo: 94, przechwyty: 75, ustawienieOfensywne: 97, orientacjaWizjaGry: 95, rzutyKarne: 92, }
+            },
+            {
+                id: "aiku", name: "Aiku Oliver", nickname: "Kapitan Ubers", team: "Ubers", country: "Japonia", age: 19, position: "Obrońca (DF)",
+                stats: { dosrodkowania: 70, wykończenie: 65, celnoscGlowek: 94, krotkiePodania: 80, woleje: 60, graSlabszaNoga: 75, odbiorTradycyjny: 96, wslizg: 92, drybling: 75, podkrecenie: 60, celnoscRzutowWolnych: 50, dlugiePodania: 82, panowanieNadPilka: 80, silaStrzalu: 78, skocznosc: 93, wytrzymalosc: 92, sila: 90, strzalyZDaleka: 60, przyspieszenie: 85, szybkoscBiegu: 87, zwinnosc: 84, refleks: 90, rownowaga: 90, agresjaEgo: 88, przechwyty: 95, ustawienieOfensywne: 70, orientacjaWizjaGry: 88, rzutyKarne: 60, }
+            },
+            {
+                id: "shidou", name: "Shidou Ryusei", nickname: "Demon, Eksplozja", team: "Paris X Gen", country: "Japonia", age: 18, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 75, wykończenie: 97, celnoscGlowek: 90, krotkiePodania: 70, woleje: 96, graSlabszaNoga: 70, odbiorTradycyjny: 60, wslizg: 55, drybling: 88, podkrecenie: 85, celnoscRzutowWolnych: 70, dlugiePodania: 65, panowanieNadPilka: 90, silaStrzalu: 95, skocznosc: 92, wytrzymalosc: 88, sila: 87, strzalyZDaleka: 90, przyspieszenie: 90, szybkoscBiegu: 91, zwinnosc: 93, refleks: 94, rownowaga: 88, agresjaEgo: 96, przechwyty: 65, ustawienieOfensywne: 95, orientacjaWizjaGry: 80, rzutyKarne: 88, }
+            },
+            { 
+                id: "agi", name: "Agi", nickname: "Wszechstronny Wspierający", team: "Manshine City", country: "Anglia", age: 18, position: "Pomocnik (MF), Napastnik (FW)",
+                stats: { dosrodkowania: 82, wykończenie: 80, celnoscGlowek: 78, krotkiePodania: 88, woleje: 75, graSlabszaNoga: 70, odbiorTradycyjny: 75, wslizg: 70, drybling: 85, podkrecenie: 78, celnoscRzutowWolnych: 65, dlugiePodania: 85, panowanieNadPilka: 87, silaStrzalu: 80, skocznosc: 80, wytrzymalosc: 88, sila: 78, strzalyZDaleka: 75, przyspieszenie: 86, szybkoscBiegu: 87, zwinnosc: 84, refleks: 85, rownowaga: 82, agresjaEgo: 80, przechwyty: 78, ustawienieOfensywne: 85, orientacjaWizjaGry: 88, rzutyKarne: 70 }
+            },
+            { 
+                id: "kazuma_nio", name: "Kazuma Nio", nickname: "Obrońca Cienia", team: "Ubers", country: "Japonia", age: 18, position: "Obrońca (DF)",
+                stats: { dosrodkowania: 60, wykończenie: 50, celnoscGlowek: 85, krotkiePodania: 75, woleje: 50, graSlabszaNoga: 65, odbiorTradycyjny: 88, wslizg: 85, drybling: 65, podkrecenie: 50, celnoscRzutowWolnych: 40, dlugiePodania: 70, panowanieNadPilka: 70, silaStrzalu: 65, skocznosc: 82, wytrzymalosc: 86, sila: 84, strzalyZDaleka: 40, przyspieszenie: 78, szybkoscBiegu: 80, zwinnosc: 75, refleks: 82, rownowaga: 85, agresjaEgo: 80, przechwyty: 87, ustawienieOfensywne: 60, orientacjaWizjaGry: 78, rzutyKarne: 50 }
+            },
+            { 
+                id: "hajime_nishioka", name: "Hajime Nishioka", nickname: "Aomori Messi (Przed Blue Lock)", team: "Brak danych (Drużyna Z)", country: "Japonia", age: 17, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 65, wykończenie: 70, celnoscGlowek: 60, krotkiePodania: 72, woleje: 68, graSlabszaNoga: 60, odbiorTradycyjny: 55, wslizg: 50, drybling: 75, podkrecenie: 70, celnoscRzutowWolnych: 60, dlugiePodania: 65, panowanieNadPilka: 73, silaStrzalu: 70, skocznosc: 70, wytrzymalosc: 75, sila: 65, strzalyZDaleka: 68, przyspieszenie: 76, szybkoscBiegu: 75, zwinnosc: 78, refleks: 72, rownowaga: 70, agresjaEgo: 70, przechwyty: 60, ustawienieOfensywne: 72, orientacjaWizjaGry: 68, rzutyKarne: 65 }
+            },
+            { 
+                id: "junichi_wanima", name: "Junichi Wanima", nickname: "Bliźniak Wanima (Starszy)", team: "Brak danych (Drużyna W)", country: "Japonia", age: 18, position: "Napastnik (FW), Obrońca (DF)",
+                stats: { dosrodkowania: 68, wykończenie: 72, celnoscGlowek: 75, krotkiePodania: 70, woleje: 65, graSlabszaNoga: 62, odbiorTradycyjny: 76, wslizg: 73, drybling: 70, podkrecenie: 60, celnoscRzutowWolnych: 55, dlugiePodania: 68, panowanieNadPilka: 71, silaStrzalu: 73, skocznosc: 78, wytrzymalosc: 80, sila: 75, strzalyZDaleka: 65, przyspieszenie: 77, szybkoscBiegu: 78, zwinnosc: 74, refleks: 75, rownowaga: 76, agresjaEgo: 78, przechwyty: 74, ustawienieOfensywne: 70, orientacjaWizjaGry: 72, rzutyKarne: 60 }
+            },
+            { 
+                id: "lavinho", name: "Lavinho", nickname: "Tańczący Magik", team: "FC Barcha (Master)", country: "Brazylia", age: 26, position: "Napastnik (FW), Pomocnik (MF)",
+                stats: { dosrodkowania: 90, wykończenie: 95, celnoscGlowek: 80, krotkiePodania: 94, woleje: 92, graSlabszaNoga: 88, odbiorTradycyjny: 75, wslizg: 70, drybling: 99, podkrecenie: 96, celnoscRzutowWolnych: 90, dlugiePodania: 92, panowanieNadPilka: 98, silaStrzalu: 93, skocznosc: 88, wytrzymalosc: 92, sila: 85, strzalyZDaleka: 90, przyspieszenie: 96, szybkoscBiegu: 95, zwinnosc: 98, refleks: 94, rownowaga: 97, agresjaEgo: 93, przechwyty: 80, ustawienieOfensywne: 95, orientacjaWizjaGry: 96, rzutyKarne: 90 }
+            },
+            { 
+                id: "otoya", name: "Otoya Eita", nickname: "Ninja, Niewidzialny Strzelec", team: "FC Barcha", country: "Japonia", age: 18, position: "Napastnik (FW), Skrzydłowy (WG)",
+                stats: { dosrodkowania: 78, wykończenie: 88, celnoscGlowek: 72, krotkiePodania: 80, woleje: 85, graSlabszaNoga: 70, odbiorTradycyjny: 68, wslizg: 62, drybling: 89, podkrecenie: 80, celnoscRzutowWolnych: 70, dlugiePodania: 75, panowanieNadPilka: 87, silaStrzalu: 84, skocznosc: 85, wytrzymalosc: 86, sila: 75, strzalyZDaleka: 80, przyspieszenie: 94, szybkoscBiegu: 93, zwinnosc: 92, refleks: 90, rownowaga: 85, agresjaEgo: 82, przechwyty: 75, ustawienieOfensywne: 94, orientacjaWizjaGry: 83, rzutyKarne: 80 }
+            },
+            { 
+                id: "darai", name: "Darai Niko", team: "Ubers", country: "Japonia", age: 18, position: "Obrońca (DF)", // Darai to nazwisko, imię nieznane, ale często mylony z Niko Ikki. Tu jako osobna postać.
+                stats: { dosrodkowania: 62, wykończenie: 55, celnoscGlowek: 86, krotkiePodania: 76, woleje: 52, graSlabszaNoga: 68, odbiorTradycyjny: 89, wslizg: 86, drybling: 68, podkrecenie: 55, celnoscRzutowWolnych: 45, dlugiePodania: 72, panowanieNadPilka: 72, silaStrzalu: 68, skocznosc: 84, wytrzymalosc: 87, sila: 85, strzalyZDaleka: 45, przyspieszenie: 79, szybkoscBiegu: 81, zwinnosc: 76, refleks: 83, rownowaga: 86, agresjaEgo: 81, przechwyty: 88, ustawienieOfensywne: 62, orientacjaWizjaGry: 80, rzutyKarne: 52 }
+            },
+            { 
+                id: "wakatsuki", name: "Wakatsuki Takeshi", nickname: "Brak danych", team: "Brak danych", country: "Japonia", age: 17, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 66, wykończenie: 73, celnoscGlowek: 70, krotkiePodania: 68, woleje: 70, graSlabszaNoga: 63, odbiorTradycyjny: 60, wslizg: 55, drybling: 72, podkrecenie: 65, celnoscRzutowWolnych: 58, dlugiePodania: 64, panowanieNadPilka: 70, silaStrzalu: 74, skocznosc: 72, wytrzymalosc: 76, sila: 70, strzalyZDaleka: 67, przyspieszenie: 78, szybkoscBiegu: 77, zwinnosc: 75, refleks: 73, rownowaga: 71, agresjaEgo: 72, przechwyty: 62, ustawienieOfensywne: 73, orientacjaWizjaGry: 67, rzutyKarne: 66 }
+            },
+            { 
+                id: "dada_silva", name: "Dada Silva", nickname: "Brazylijski Technik", team: "FC Barcha", country: "Brazylia", age: 18, position: "Pomocnik (MF)",
+                stats: { dosrodkowania: 80, wykończenie: 75, celnoscGlowek: 70, krotkiePodania: 87, woleje: 78, graSlabszaNoga: 75, odbiorTradycyjny: 72, wslizg: 68, drybling: 88, podkrecenie: 85, celnoscRzutowWolnych: 78, dlugiePodania: 85, panowanieNadPilka: 90, silaStrzalu: 78, skocznosc: 78, wytrzymalosc: 84, sila: 76, strzalyZDaleka: 76, przyspieszenie: 85, szybkoscBiegu: 84, zwinnosc: 88, refleks: 86, rownowaga: 85, agresjaEgo: 80, przechwyty: 76, ustawienieOfensywne: 82, orientacjaWizjaGry: 87, rzutyKarne: 75 }
+            },
+            { 
+                id: "don_lorenzo", name: "Don Lorenzo", nickname: "Król Złodziei, Defensywny Mur", team: "Ubers", country: "Włochy", age: 20, position: "Obrońca (DF)",
+                stats: { dosrodkowania: 75, wykończenie: 70, celnoscGlowek: 95, krotkiePodania: 88, woleje: 65, graSlabszaNoga: 80, odbiorTradycyjny: 99, wslizg: 97, drybling: 80, podkrecenie: 70, celnoscRzutowWolnych: 60, dlugiePodania: 88, panowanieNadPilka: 86, silaStrzalu: 80, skocznosc: 92, wytrzymalosc: 94, sila: 93, strzalyZDaleka: 65, przyspieszenie: 87, szybkoscBiegu: 88, zwinnosc: 85, refleks: 93, rownowaga: 92, agresjaEgo: 90, przechwyty: 98, ustawienieOfensywne: 75, orientacjaWizjaGry: 94, rzutyKarne: 65 }
+            },
+            { 
+                id: "snuffy", name: "Marc Snuffy", nickname: "Taktyczny Geniusz, Wszechstronny Mistrz", team: "Ubers (Master)", country: "Włochy", age: 29, position: "Napastnik (FW), Pomocnik (MF)",
+                stats: { dosrodkowania: 92, wykończenie: 96, celnoscGlowek: 90, krotkiePodania: 97, woleje: 93, graSlabszaNoga: 90, odbiorTradycyjny: 88, wslizg: 85, drybling: 94, podkrecenie: 90, celnoscRzutowWolnych: 88, dlugiePodania: 96, panowanieNadPilka: 97, silaStrzalu: 94, skocznosc: 88, wytrzymalosc: 95, sila: 89, strzalyZDaleka: 91, przyspieszenie: 92, szybkoscBiegu: 93, zwinnosc: 91, refleks: 95, rownowaga: 90, agresjaEgo: 92, przechwyty: 90, ustawienieOfensywne: 97, orientacjaWizjaGry: 99, rzutyKarne: 92 }
+            },
+            { 
+                id: "aryu_jyubei", name: "Aryu Jyubei", nickname: "Stylowy Olbrzym", team: "Ubers", country: "Japonia", age: 18, position: "Obrońca (DF), Napastnik (FW)",
+                stats: { dosrodkowania: 72, wykończenie: 82, celnoscGlowek: 95, krotkiePodania: 75, woleje: 78, graSlabszaNoga: 65, odbiorTradycyjny: 86, wslizg: 80, drybling: 78, podkrecenie: 70, celnoscRzutowWolnych: 60, dlugiePodania: 72, panowanieNadPilka: 80, silaStrzalu: 83, skocznosc: 96, wytrzymalosc: 85, sila: 84, strzalyZDaleka: 70, przyspieszenie: 80, szybkoscBiegu: 82, zwinnosc: 78, refleks: 88, rownowaga: 82, agresjaEgo: 80, przechwyty: 85, ustawienieOfensywne: 80, orientacjaWizjaGry: 78, rzutyKarne: 70 }
+            },
+            { 
+                id: "niko_ikki", name: "Niko Ikki", nickname: "Wieża Kontrolna, Mózg Defensywy", team: "Ubers", country: "Japonia", age: 16, position: "Obrońca (DF), Pomocnik (MF)",
+                stats: { dosrodkowania: 70, wykończenie: 60, celnoscGlowek: 80, krotkiePodania: 88, woleje: 62, graSlabszaNoga: 72, odbiorTradycyjny: 89, wslizg: 85, drybling: 75, podkrecenie: 65, celnoscRzutowWolnych: 55, dlugiePodania: 87, panowanieNadPilka: 85, silaStrzalu: 70, skocznosc: 78, wytrzymalosc: 84, sila: 75, strzalyZDaleka: 60, przyspieszenie: 78, szybkoscBiegu: 79, zwinnosc: 80, refleks: 88, rownowaga: 80, agresjaEgo: 75, przechwyty: 94, ustawienieOfensywne: 70, orientacjaWizjaGry: 95, rzutyKarne: 60 }
+            },
+            { 
+                id: "sendou_shuto", name: "Sendou Shuto", nickname: "As Ubers (Samozwańczy)", team: "Ubers", country: "Japonia", age: 18, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 75, wykończenie: 87, celnoscGlowek: 84, krotkiePodania: 78, woleje: 82, graSlabszaNoga: 70, odbiorTradycyjny: 65, wslizg: 60, drybling: 82, podkrecenie: 78, celnoscRzutowWolnych: 72, dlugiePodania: 70, panowanieNadPilka: 83, silaStrzalu: 86, skocznosc: 83, wytrzymalosc: 85, sila: 80, strzalyZDaleka: 81, przyspieszenie: 84, szybkoscBiegu: 85, zwinnosc: 82, refleks: 84, rownowaga: 80, agresjaEgo: 88, przechwyty: 68, ustawienieOfensywne: 86, orientacjaWizjaGry: 78, rzutyKarne: 80 }
+            },
+            { 
+                id: "fukaku_gen", name: "Fukaku Gen", nickname: "Bramkarz Rezerwowy", team: "Blue Lock (początkowo)", country: "Japonia", age: 17, position: "Bramkarz (GK)",
+                stats: { dosrodkowania: 30, wykończenie: 30, celnoscGlowek: 50, krotkiePodania: 55, woleje: 30, graSlabszaNoga: 40, odbiorTradycyjny: 40, wslizg: 45, drybling: 35, podkrecenie: 30, celnoscRzutowWolnych: 25, dlugiePodania: 60, panowanieNadPilka: 50, silaStrzalu: 40, skocznosc: 75, wytrzymalosc: 70, sila: 65, strzalyZDaleka: 25, przyspieszenie: 60, szybkoscBiegu: 62, zwinnosc: 70, refleks: 78, rownowaga: 70, agresjaEgo: 60, przechwyty: 40, ustawienieOfensywne: 30, orientacjaWizjaGry: 50, rzutyKarne: 40, paradyBramkarskie: 80, lapanieBramkarskie: 75, wykopyBramkarskie: 70, ustawienieBramkarza: 78, refleksBramkarza: 82 }
+            },
+            { 
+                id: "noel_noa", name: "Noel Noa", nickname: "Najlepszy Napastnik Świata, Cyborg", team: "Bastard München (Master)", country: "Francja", age: 31, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 93, wykończenie: 99, celnoscGlowek: 92, krotkiePodania: 95, woleje: 98, graSlabszaNoga: 95, odbiorTradycyjny: 80, wslizg: 75, drybling: 97, podkrecenie: 94, celnoscRzutowWolnych: 92, dlugiePodania: 90, panowanieNadPilka: 98, silaStrzalu: 99, skocznosc: 93, wytrzymalosc: 96, sila: 92, strzalyZDaleka: 97, przyspieszenie: 97, szybkoscBiegu: 98, zwinnosc: 95, refleks: 98, rownowaga: 96, agresjaEgo: 95, przechwyty: 85, ustawienieOfensywne: 99, orientacjaWizjaGry: 98, rzutyKarne: 96 }
+            },
+            { 
+                id: "yukimiya_kenyu", name: "Yukimiya Kenyu", nickname: "Cesarz Dryblingu Jednego na Jednego", team: "Bastard München", country: "Japonia", age: 18, position: "Napastnik (FW), Skrzydłowy (WG)",
+                stats: { dosrodkowania: 80, wykończenie: 88, celnoscGlowek: 75, krotkiePodania: 82, woleje: 84, graSlabszaNoga: 70, odbiorTradycyjny: 68, wslizg: 60, drybling: 94, podkrecenie: 88, celnoscRzutowWolnych: 78, dlugiePodania: 75, panowanieNadPilka: 92, silaStrzalu: 87, skocznosc: 80, wytrzymalosc: 80, sila: 76, strzalyZDaleka: 85, przyspieszenie: 88, szybkoscBiegu: 89, zwinnosc: 90, refleks: 87, rownowaga: 85, agresjaEgo: 85, przechwyty: 72, ustawienieOfensywne: 88, orientacjaWizjaGry: 86, rzutyKarne: 82 }
+            },
+            { 
+                id: "hiori_yo", name: "Hiori Yo", nickname: "Spokojny Rozgrywający, Lalkarz Cienia", team: "Bastard München", country: "Japonia", age: 17, position: "Pomocnik (MF)",
+                stats: { dosrodkowania: 88, wykończenie: 75, celnoscGlowek: 68, krotkiePodania: 95, woleje: 78, graSlabszaNoga: 80, odbiorTradycyjny: 78, wslizg: 72, drybling: 85, podkrecenie: 86, celnoscRzutowWolnych: 75, dlugiePodania: 94, panowanieNadPilka: 93, silaStrzalu: 78, skocznosc: 75, wytrzymalosc: 86, sila: 74, strzalyZDaleka: 76, przyspieszenie: 82, szybkoscBiegu: 83, zwinnosc: 85, refleks: 88, rownowaga: 84, agresjaEgo: 78, przechwyty: 83, ustawienieOfensywne: 85, orientacjaWizjaGry: 96, rzutyKarne: 78 }
+            },
+            { 
+                id: "raichi_jingo", name: "Raichi Jingo", nickname: "Seksowny Piłkarz, Wytrzymałościowy Potwór", team: "Bastard München", country: "Japonia", age: 17, position: "Pomocnik (MF), Obrońca (DF)",
+                stats: { dosrodkowania: 70, wykończenie: 72, celnoscGlowek: 78, krotkiePodania: 78, woleje: 70, graSlabszaNoga: 65, odbiorTradycyjny: 85, wslizg: 80, drybling: 74, podkrecenie: 60, celnoscRzutowWolnych: 50, dlugiePodania: 72, panowanieNadPilka: 76, silaStrzalu: 80, skocznosc: 80, wytrzymalosc: 96, sila: 88, strzalyZDaleka: 70, przyspieszenie: 80, szybkoscBiegu: 82, zwinnosc: 78, refleks: 80, rownowaga: 86, agresjaEgo: 92, przechwyty: 82, ustawienieOfensywne: 75, orientacjaWizjaGry: 76, rzutyKarne: 65 }
+            },
+            { 
+                id: "kurona_ranze", name: "Kurona Ranze", nickname: "Rekin, Wsparcie Isagiego", team: "Bastard München", country: "Japonia", age: 17, position: "Skrzydłowy (WG), Boczny Obrońca (SB)",
+                stats: { dosrodkowania: 87, wykończenie: 76, celnoscGlowek: 70, krotkiePodania: 84, woleje: 75, graSlabszaNoga: 72, odbiorTradycyjny: 75, wslizg: 70, drybling: 86, podkrecenie: 80, celnoscRzutowWolnych: 65, dlugiePodania: 80, panowanieNadPilka: 85, silaStrzalu: 78, skocznosc: 80, wytrzymalosc: 90, sila: 75, strzalyZDaleka: 72, przyspieszenie: 92, szybkoscBiegu: 91, zwinnosc: 88, refleks: 86, rownowaga: 84, agresjaEgo: 78, przechwyty: 77, ustawienieOfensywne: 85, orientacjaWizjaGry: 83, rzutyKarne: 70 }
+            },
+            { 
+                id: "kiyora_jin", name: "Kiyora Jin", nickname: "Ukryty Talent", team: "Bastard München", country: "Japonia", age: 17, position: "Pomocnik (MF)",
+                stats: { dosrodkowania: 78, wykończenie: 74, celnoscGlowek: 70, krotkiePodania: 86, woleje: 72, graSlabszaNoga: 70, odbiorTradycyjny: 75, wslizg: 70, drybling: 83, podkrecenie: 75, celnoscRzutowWolnych: 68, dlugiePodania: 84, panowanieNadPilka: 85, silaStrzalu: 76, skocznosc: 78, wytrzymalosc: 83, sila: 74, strzalyZDaleka: 70, przyspieszenie: 80, szybkoscBiegu: 81, zwinnosc: 82, refleks: 84, rownowaga: 80, agresjaEgo: 76, przechwyty: 78, ustawienieOfensywne: 80, orientacjaWizjaGry: 85, rzutyKarne: 70 }
+            },
+            { 
+                id: "alexis_ness", name: "Alexis Ness", nickname: "Magik, Sługa Kaisera", team: "Bastard München", country: "Niemcy", age: 18, position: "Pomocnik (MF)",
+                stats: { dosrodkowania: 90, wykończenie: 82, celnoscGlowek: 75, krotkiePodania: 94, woleje: 85, graSlabszaNoga: 80, odbiorTradycyjny: 78, wslizg: 72, drybling: 92, podkrecenie: 91, celnoscRzutowWolnych: 85, dlugiePodania: 93, panowanieNadPilka: 95, silaStrzalu: 84, skocznosc: 80, wytrzymalosc: 88, sila: 78, strzalyZDaleka: 82, przyspieszenie: 87, szybkoscBiegu: 88, zwinnosc: 90, refleks: 90, rownowaga: 86, agresjaEgo: 80, przechwyty: 82, ustawienieOfensywne: 88, orientacjaWizjaGry: 94, rzutyKarne: 80 }
+            },
+            { 
+                id: "igaguri", name: "Igaguri", nickname: "Mnich, Malicja", team: "Bastard München", country: "Japonia", age: 17, position: "Napastnik (FW) (bardziej 'przeszkadzacz')",
+                stats: { dosrodkowania: 40, wykończenie: 50, celnoscGlowek: 60, krotkiePodania: 55, woleje: 45, graSlabszaNoga: 40, odbiorTradycyjny: 65, wslizg: 60, drybling: 50, podkrecenie: 30, celnoscRzutowWolnych: 30, dlugiePodania: 50, panowanieNadPilka: 52, silaStrzalu: 55, skocznosc: 65, wytrzymalosc: 75, sila: 68, strzalyZDaleka: 40, przyspieszenie: 60, szybkoscBiegu: 62, zwinnosc: 55, refleks: 70, rownowaga: 68, agresjaEgo: 80, przechwyty: 68, ustawienieOfensywne: 50, orientacjaWizjaGry: 55, rzutyKarne: 40 }
+            },
+            { 
+                id: "teppei_neru", name: "Teppei Neru", nickname: "Brak danych", team: "Brak danych", country: "Japonia", age: 17, position: "Obrońca (DF)",
+                stats: { dosrodkowania: 60, wykończenie: 50, celnoscGlowek: 80, krotkiePodania: 70, woleje: 50, graSlabszaNoga: 60, odbiorTradycyjny: 82, wslizg: 80, drybling: 65, podkrecenie: 50, celnoscRzutowWolnych: 40, dlugiePodania: 68, panowanieNadPilka: 68, silaStrzalu: 60, skocznosc: 80, wytrzymalosc: 82, sila: 78, strzalyZDaleka: 45, przyspieszenie: 75, szybkoscBiegu: 76, zwinnosc: 72, refleks: 78, rownowaga: 79, agresjaEgo: 75, przechwyty: 80, ustawienieOfensywne: 55, orientacjaWizjaGry: 70, rzutyKarne: 50 }
+            },
+            { 
+                id: "julian_loki", name: "Julian Loki", nickname: "Bóg Prędkości", team: "Paris X Gen (Master)", country: "Francja", age: 17, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 85, wykończenie: 96, celnoscGlowek: 82, krotkiePodania: 88, woleje: 90, graSlabszaNoga: 80, odbiorTradycyjny: 70, wslizg: 65, drybling: 95, podkrecenie: 88, celnoscRzutowWolnych: 80, dlugiePodania: 82, panowanieNadPilka: 94, silaStrzalu: 93, skocznosc: 90, wytrzymalosc: 92, sila: 84, strzalyZDaleka: 88, przyspieszenie: 100, szybkoscBiegu: 100, zwinnosc: 97, refleks: 95, rownowaga: 90, agresjaEgo: 90, przechwyty: 75, ustawienieOfensywne: 96, orientacjaWizjaGry: 92, rzutyKarne: 88 }
+            },
+            { 
+                id: "charles_chevalier", name: "Charles Chevalier", nickname: "Młody Dyrygent", team: "Paris X Gen", country: "Francja", age: 15, position: "Pomocnik (MF)",
+                stats: { dosrodkowania: 89, wykończenie: 78, celnoscGlowek: 70, krotkiePodania: 96, woleje: 80, graSlabszaNoga: 82, odbiorTradycyjny: 80, wslizg: 75, drybling: 90, podkrecenie: 88, celnoscRzutowWolnych: 82, dlugiePodania: 95, panowanieNadPilka: 94, silaStrzalu: 80, skocznosc: 78, wytrzymalosc: 87, sila: 76, strzalyZDaleka: 78, przyspieszenie: 86, szybkoscBiegu: 87, zwinnosc: 90, refleks: 91, rownowaga: 85, agresjaEgo: 82, przechwyty: 84, ustawienieOfensywne: 88, orientacjaWizjaGry: 97, rzutyKarne: 80 }
+            },
+            { 
+                id: "zantetsu_tsurugi", name: "Zantetsu Tsurugi", nickname: "Głupi Sprinter", team: "Paris X Gen", country: "Japonia", age: 17, position: "Napastnik (FW), Skrzydłowy (WG)",
+                stats: { dosrodkowania: 70, wykończenie: 86, celnoscGlowek: 75, krotkiePodania: 72, woleje: 80, graSlabszaNoga: 80, odbiorTradycyjny: 60, wslizg: 55, drybling: 82, podkrecenie: 70, celnoscRzutowWolnych: 65, dlugiePodania: 68, panowanieNadPilka: 80, silaStrzalu: 85, skocznosc: 84, wytrzymalosc: 86, sila: 78, strzalyZDaleka: 80, przyspieszenie: 96, szybkoscBiegu: 95, zwinnosc: 88, refleks: 82, rownowaga: 80, agresjaEgo: 78, przechwyty: 65, ustawienieOfensywne: 84, orientacjaWizjaGry: 70, rzutyKarne: 75 }
+            },
+            { 
+                id: "karasu_tabito", name: "Karasu Tabito", nickname: "Zabójca Analityk, Kruk", team: "Paris X Gen", country: "Japonia", age: 18, position: "Pomocnik (MF), Napastnik (FW)",
+                stats: { dosrodkowania: 84, wykończenie: 85, celnoscGlowek: 80, krotkiePodania: 92, woleje: 82, graSlabszaNoga: 78, odbiorTradycyjny: 88, wslizg: 82, drybling: 89, podkrecenie: 85, celnoscRzutowWolnych: 78, dlugiePodania: 90, panowanieNadPilka: 93, silaStrzalu: 84, skocznosc: 82, wytrzymalosc: 90, sila: 83, strzalyZDaleka: 80, przyspieszenie: 87, szybkoscBiegu: 88, zwinnosc: 89, refleks: 92, rownowaga: 88, agresjaEgo: 86, przechwyty: 91, ustawienieOfensywne: 88, orientacjaWizjaGry: 94, rzutyKarne: 82 }
+            },
+            { 
+                id: "tokimitsu_aoshi", name: "Tokimitsu Aoshi", nickname: "Przestraszony Tytan", team: "Paris X Gen", country: "Japonia", age: 17, position: "Napastnik (FW), Obrońca (DF)",
+                stats: { dosrodkowania: 65, wykończenie: 84, celnoscGlowek: 88, krotkiePodania: 70, woleje: 78, graSlabszaNoga: 60, odbiorTradycyjny: 80, wslizg: 75, drybling: 72, podkrecenie: 60, celnoscRzutowWolnych: 50, dlugiePodania: 65, panowanieNadPilka: 78, silaStrzalu: 90, skocznosc: 92, wytrzymalosc: 97, sila: 98, strzalyZDaleka: 75, przyspieszenie: 85, szybkoscBiegu: 86, zwinnosc: 75, refleks: 80, rownowaga: 94, agresjaEgo: 70, przechwyty: 78, ustawienieOfensywne: 80, orientacjaWizjaGry: 72, rzutyKarne: 70 }
+            },
+            { 
+                id: "nijiro_nanase", name: "Nijiro Nanase", nickname: "Przyjacielski Napastnik", team: "Brak danych (Drużyna Z)", country: "Japonia", age: 17, position: "Napastnik (FW)",
+                stats: { dosrodkowania: 70, wykończenie: 75, celnoscGlowek: 68, krotkiePodania: 78, woleje: 72, graSlabszaNoga: 65, odbiorTradycyjny: 62, wslizg: 58, drybling: 76, podkrecenie: 70, celnoscRzutowWolnych: 62, dlugiePodania: 74, panowanieNadPilka: 77, silaStrzalu: 74, skocznosc: 75, wytrzymalosc: 80, sila: 70, strzalyZDaleka: 68, przyspieszenie: 80, szybkoscBiegu: 79, zwinnosc: 80, refleks: 78, rownowaga: 76, agresjaEgo: 70, przechwyty: 68, ustawienieOfensywne: 76, orientacjaWizjaGry: 75, rzutyKarne: 70 }
+            }
+        ].sort((a, b) => a.name.localeCompare(b.name));
+
+
+        const characterListEl = document.getElementById('characterList');
+        const characterProfileEl = document.getElementById('characterProfile');
+        const profilePlaceholderEl = document.getElementById('profilePlaceholder');
+        let currentCharts = [];
+
+        function renderCharacterList() {
+            charactersData.forEach(char => {
+                const button = document.createElement('button');
+                button.className = 'w-full text-left p-3 bg-white hover:bg-sky-100 rounded-md shadow transition-colors duration-150 border border-stone-200 text-stone-700';
+                button.textContent = char.name;
+                button.onclick = () => {
+                    renderCharacterProfile(char.id);
+                    document.querySelectorAll('#characterList button').forEach(btn => btn.classList.remove('active-char-button'));
+                    button.classList.add('active-char-button');
+                };
+                characterListEl.appendChild(button);
+            });
+        }
+        
+        function destroyCurrentCharts() {
+            currentCharts.forEach(chart => chart.destroy());
+            currentCharts = [];
+        }
+
+        function createChart(ctx, type, data, options) {
+            const chart = new Chart(ctx, { type, data, options });
+            currentCharts.push(chart);
+            return chart;
+        }
+
+        function renderCharacterProfile(characterId) {
+            const character = charactersData.find(c => c.id === characterId);
+            if (!character) return;
+
+            destroyCurrentCharts();
+            profilePlaceholderEl.style.display = 'none';
+
+            characterProfileEl.innerHTML = `
+                <div class="mb-8 pb-4 border-b border-stone-200">
+                    <h2 class="text-4xl font-bold text-sky-600 mb-1">${character.name}</h2>
+                    <p class="text-lg text-stone-500 italic">${character.nickname || "Brak danych"}</p>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6 mb-8">
+                    <div class="bg-stone-50 p-4 rounded-lg shadow">
+                        <h3 class="text-xl font-semibold mb-3 text-sky-700">Informacje Ogólne</h3>
+                        <table class="w-full text-sm text-left text-stone-600">
+                            <tbody>
+                                <tr class="border-b border-stone-200"><td class="py-2 font-medium pr-2">Kraj:</td><td>${character.country || "Brak danych"}</td></tr>
+                                <tr class="border-b border-stone-200"><td class="py-2 font-medium pr-2">Zespół:</td><td>${character.team || "Brak danych"}</td></tr>
+                                <tr class="border-b border-stone-200"><td class="py-2 font-medium pr-2">Wiek:</td><td>${character.age ? character.age + ' lat' : "Brak danych"}</td></tr>
+                                <tr class="border-b border-stone-200"><td class="py-2 font-medium pr-2">Urodziny:</td><td>${character.birthDay && character.birthMonth ? character.birthDay + ' ' + character.birthMonth : "Brak danych"}</td></tr>
+                                <tr class="border-b border-stone-200"><td class="py-2 font-medium pr-2">Wzrost:</td><td>${character.height || "Brak danych"}</td></tr>
+                                <tr class="border-b border-stone-200"><td class="py-2 font-medium pr-2">Waga:</td><td>${character.weight || "Brak danych"}</td></tr>
+                                <tr class="border-b border-stone-200"><td class="py-2 font-medium pr-2">Pozycja:</td><td>${character.position || "Brak danych"}</td></tr>
+                                <tr class="border-b border-stone-200"><td class="py-2 font-medium pr-2">Rola:</td><td>${character.role || "Brak danych"}</td></tr>
+                                <tr><td class="py-2 font-medium pr-2">Lepsza noga:</td><td>${character.preferredFoot || "Brak danych"}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="radarChartContainer" class="bg-stone-50 p-4 rounded-lg shadow">
+                        <h3 class="text-xl font-semibold mb-3 text-sky-700">Kluczowe Atrybuty Ogólne</h3>
+                        <p class="text-xs text-stone-500 mb-2">Ogólny zarys najważniejszych umiejętności zawodnika.</p>
+                        <div class="chart-container">
+                            <canvas id="radarChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="detailedChartsSection">
+                    <h3 class="text-2xl font-semibold mb-4 text-sky-700 border-b-2 border-sky-200 pb-2">Szczegółowe Grupy Umiejętności</h3>
+                     <p class="text-sm text-stone-600 mb-6">Poniższe wykresy przedstawiają umiejętności pogrupowane tematycznie, pozwalając na dokładniejszą analizę mocnych i słabych stron zawodnika.</p>
+                    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="bg-stone-50 p-4 rounded-lg shadow chart-group-container">
+                            <h4 class="text-lg font-medium mb-2 text-sky-600">Ofensywa</h4>
+                            <div class="chart-container !h-[250px] sm:!h-[280px] md:!h-[300px]">
+                                <canvas id="offenseChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-stone-50 p-4 rounded-lg shadow chart-group-container">
+                            <h4 class="text-lg font-medium mb-2 text-sky-600">Technika</h4>
+                             <div class="chart-container !h-[250px] sm:!h-[280px] md:!h-[300px]">
+                                <canvas id="techniqueChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-stone-50 p-4 rounded-lg shadow chart-group-container">
+                            <h4 class="text-lg font-medium mb-2 text-sky-600">Podania</h4>
+                            <div class="chart-container !h-[250px] sm:!h-[280px] md:!h-[300px]">
+                                <canvas id="passingChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-stone-50 p-4 rounded-lg shadow chart-group-container">
+                            <h4 class="text-lg font-medium mb-2 text-sky-600">Defensywa</h4>
+                             <div class="chart-container !h-[250px] sm:!h-[280px] md:!h-[300px]">
+                                <canvas id="defenseChart"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-stone-50 p-4 rounded-lg shadow chart-group-container">
+                            <h4 class="text-lg font-medium mb-2 text-sky-600">Fizyczne</h4>
+                             <div class="chart-container !h-[250px] sm:!h-[280px] md:!h-[300px]">
+                                <canvas id="physicalChart"></canvas>
+                            </div>
+                        </div>
+                         <div class="bg-stone-50 p-4 rounded-lg shadow chart-group-container">
+                            <h4 class="text-lg font-medium mb-2 text-sky-600">Mentalne</h4>
+                            <div class="chart-container !h-[250px] sm:!h-[280px] md:!h-[300px]">
+                                <canvas id="mentalChart"></canvas>
+                            </div>
+                        </div>
+                         ${(character.id === 'gagamaru' || character.id === 'fukaku_gen') && character.stats && character.stats.paradyBramkarskie ? `
+                         <div class="bg-stone-50 p-4 rounded-lg shadow chart-group-container">
+                            <h4 class="text-lg font-medium mb-2 text-sky-600">Bramkarskie</h4>
+                            <div class="chart-container !h-[250px] sm:!h-[280px] md:!h-[300px]">
+                                <canvas id="goalkeepingChart"></canvas>
+                            </div>
+                        </div>` : ''}
+                    </div>
+                </div>
+            `;
+            
+            if (character.stats && Object.keys(character.stats).length > 0) {
+                const S = character.stats;
+
+                const radarCtx = document.getElementById('radarChart').getContext('2d');
+                createChart(radarCtx, 'radar', {
+                    labels: ['Wykończenie', 'Drybling', 'K. Podania', 'Szybkość', 'Orientacja', 'Przechwyty', 'Siła Strzału'],
+                    datasets: [{
+                        label: character.name,
+                        data: [S.wykończenie, S.drybling, S.krotkiePodania, S.szybkoscBiegu, S.orientacjaWizjaGry, S.przechwyty, S.silaStrzalu],
+                        fill: true, backgroundColor: 'rgba(14, 165, 233, 0.2)', borderColor: 'rgb(14, 165, 233)',
+                        pointBackgroundColor: 'rgb(14, 165, 233)', pointBorderColor: '#fff', pointHoverBackgroundColor: '#fff', pointHoverBorderColor: 'rgb(14, 165, 233)'
+                    }]
+                }, {
+                    maintainAspectRatio: false,
+                    scales: { r: { angleLines: { display: true }, suggestedMin: 0, suggestedMax: 100, pointLabels: { font: { size: 10 } }, ticks: { backdropColor: 'transparent', stepSize: 20 } } },
+                    plugins: { legend: { display: false }, tooltip: { bodyFont: { size: 11 }, titleFont: {size: 13 }} }
+                });
+                
+                const barChartOptions = {
+                    indexAxis: 'y', maintainAspectRatio: false,
+                    scales: { x: { suggestedMin: 0, suggestedMax: 100, ticks: { font: {size: 10}} }, y: { ticks: { font: {size: 10}}}},
+                    plugins: { legend: { display: false }, tooltip: { bodyFont: { size: 11 }, titleFont: {size: 13 }} }
+                };
+                const barChartBGColor = 'rgba(14, 165, 233, 0.6)';
+                const barChartBorderColor = 'rgb(14, 165, 233)';
+
+                createChart(document.getElementById('offenseChart').getContext('2d'), 'bar', {
+                    labels: ['Wykończenie', 'Siła Strzału', 'Strz. z Daleka', 'Woleje', 'Główki'],
+                    datasets: [{ data: [S.wykończenie, S.silaStrzalu, S.strzalyZDaleka, S.woleje, S.celnoscGlowek], backgroundColor: barChartBGColor, borderColor: barChartBorderColor, borderWidth: 1 }]
+                }, barChartOptions);
+                createChart(document.getElementById('techniqueChart').getContext('2d'), 'bar', {
+                    labels: ['Drybling', 'Panow. nad Piłką', 'Podkręcenie', 'Słabsza Noga'],
+                    datasets: [{ data: [S.drybling, S.panowanieNadPilka, S.podkrecenie, S.graSlabszaNoga], backgroundColor: barChartBGColor, borderColor: barChartBorderColor, borderWidth: 1 }]
+                }, barChartOptions);
+                createChart(document.getElementById('passingChart').getContext('2d'), 'bar', {
+                    labels: ['Krótkie Podania', 'Długie Podania', 'Dośrodkowania'],
+                    datasets: [{ data: [S.krotkiePodania, S.dlugiePodania, S.dosrodkowania], backgroundColor: barChartBGColor, borderColor: barChartBorderColor, borderWidth: 1 }]
+                }, barChartOptions);
+                createChart(document.getElementById('defenseChart').getContext('2d'), 'bar', {
+                    labels: ['Odbiór Trad.', 'Wślizg', 'Przechwyty', 'Agresja (Ego)'],
+                    datasets: [{ data: [S.odbiorTradycyjny, S.wslizg, S.przechwyty, S.agresjaEgo], backgroundColor: barChartBGColor, borderColor: barChartBorderColor, borderWidth: 1 }]
+                }, barChartOptions);
+                createChart(document.getElementById('physicalChart').getContext('2d'), 'bar', {
+                    labels: ['Przyspieszenie', 'Szybkość Biegu', 'Skoczność', 'Wytrzymałość', 'Siła', 'Równowaga'],
+                    datasets: [{ data: [S.przyspieszenie, S.szybkoscBiegu, S.skocznosc, S.wytrzymalosc, S.sila, S.rownowaga], backgroundColor: barChartBGColor, borderColor: barChartBorderColor, borderWidth: 1 }]
+                }, barChartOptions);
+                createChart(document.getElementById('mentalChart').getContext('2d'), 'bar', {
+                    labels: ['Ustawienie Ofen.', 'Orientacja', 'Refleks'],
+                    datasets: [{ data: [S.ustawienieOfensywne, S.orientacjaWizjaGry, S.refleks], backgroundColor: barChartBGColor, borderColor: barChartBorderColor, borderWidth: 1 }]
+                }, barChartOptions);
+
+                if ((character.id === 'gagamaru' || character.id === 'fukaku_gen') && S.paradyBramkarskie) {
+                     const gkChartEl = document.getElementById('goalkeepingChart');
+                     if (gkChartEl) { // Check if element exists before creating chart
+                        createChart(gkChartEl.getContext('2d'), 'bar', {
+                            labels: ['Parady', 'Łapanie', 'Wykopy', 'Ustawienie GK', 'Refleks GK'],
+                            datasets: [{ data: [S.paradyBramkarskie, S.lapanieBramkarskie, S.wykopyBramkarskie, S.ustawienieBramkarza, S.refleksBramkarza], backgroundColor: barChartBGColor, borderColor: barChartBorderColor, borderWidth: 1 }]
+                        }, barChartOptions);
+                     }
+                }
+
+            } else {
+                document.getElementById('radarChartContainer').innerHTML = '<p class="placeholder-text">Ogólne statystyki dla tej postaci są obecnie niedostępne.</p>';
+                document.getElementById('detailedChartsSection').innerHTML = '<p class="placeholder-text">Szczegółowe statystyki dla tej postaci są obecnie niedostępne.</p>';
+            }
+        }
+
+        renderCharacterList();
+    </script>
+</body>
+</html>
